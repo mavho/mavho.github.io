@@ -5,6 +5,7 @@ use tower_http::services::ServeDir;
 mod templates;
 const CONTENT_DIR: &str = "content";
 const PUBLIC_DIR: &str = "public";
+const STATIC_DIR : &str = "static";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -24,9 +25,14 @@ async fn main() -> Result<(), anyhow::Error> {
         }
     });
 
+    // static directory route
+    //let static_route = Router::new()
     let app = Router::new().nest(
-        "/",
+        "/sites",
         routing::get_service(ServeDir::new(PUBLIC_DIR)).handle_error(handle_error),
+    ).nest(
+        "/static",
+        routing::get_service(ServeDir::new(STATIC_DIR)).handle_error(handle_error),
     );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -81,7 +87,7 @@ fn write_index(files: Vec<String>, output_dir: &str) -> Result<(), anyhow::Error
         .map(|file| {
             let file = file.trim_start_matches(output_dir);
             let title = file.trim_start_matches("/").trim_end_matches(".html");
-            format!(r#"<a href="{}">{}</a>"#, file, title)
+            format!(r#"<a href="/sites{}">{}</a>"#, file, title)
         })
         .collect::<Vec<String>>()
         .join("<br />\n");
