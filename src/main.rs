@@ -28,7 +28,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // static directory route
     //let static_route = Router::new()
     let app = Router::new().nest(
-        "/sites",
+        "/blog",
         routing::get_service(ServeDir::new(PUBLIC_DIR)).handle_error(handle_error),
     ).nest(
         "/static",
@@ -87,7 +87,7 @@ fn write_index(files: Vec<String>, output_dir: &str) -> Result<(), anyhow::Error
         .map(|file| {
             let file = file.trim_start_matches(output_dir);
             let title = file.trim_start_matches("/").trim_end_matches(".html");
-            format!(r#"<a href="/sites{}">{}</a>"#, file, title)
+            format!(r#"<a href="/blog{}">{}</a>"#, file, title)
         })
         .collect::<Vec<String>>()
         .join("<br />\n");

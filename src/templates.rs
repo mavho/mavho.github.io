@@ -11,11 +11,28 @@ pub fn render_body(body: &str) -> String {
     format!(
         r#"
         <body>
-            <nav>
-                <a href="/sites">Home</a>
-            </nav>
+          <div class="container">
+            <div class="navigation">
+              <ul>
+                <li>
+                  <a href="/about">about</a>
+                </li>
+                <li>
+                  <a href="/blog">blog</a>
+                </li>
+                <li>
+                  <a href="/resume">resume</a>
+                </li>
+              </ul>
+            </div>
+
             <br/>
+
+            <div class="body">
             {}
+            </div>
+
+          <div class="container">
         </body>"#,
         body
     )
