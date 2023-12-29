@@ -12,10 +12,14 @@ pub fn render_body(body: &str) -> String {
         r#"
         <body>
           <div class="container">
+            <div class="header">
+                Welcome! I'm 
+                <a href="/about">Maverick</a>
+            </div>
             <div class="navigation">
               <ul>
                 <li>
-                  <a href="/about">about</a>
+                  <a href="/static/aboutme.html">about</a>
                 </li>
                 <li>
                   <a href="/blog">blog</a>
@@ -32,7 +36,6 @@ pub fn render_body(body: &str) -> String {
             {}
             </div>
 
-          <div class="container">
         </body>"#,
         body
     )
