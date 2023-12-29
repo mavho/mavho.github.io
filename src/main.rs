@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, routing, Router};
 use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration};
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir,ServeFile};
 
 mod templates;
 const CONTENT_DIR: &str = "content";
@@ -33,6 +33,11 @@ async fn main() -> Result<(), anyhow::Error> {
     ).nest(
         "/static",
         routing::get_service(ServeDir::new(STATIC_DIR)).handle_error(handle_error),
+    ).nest(
+        "/about",
+        routing::get_service(ServeFile::new("static/aboutme.html")).handle_error(handle_error)
+    ).fallback(
+        routing::get_service(ServeDir::new(PUBLIC_DIR)).handle_error(handle_error)
     );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -50,7 +55,9 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
     let markdown_files: Vec<String> = walkdir::WalkDir::new(content_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().display().to_string().ends_with(".md"))
+        .filter(|e| {
+            e.path().display().to_string().ends_with(".md") && !e.path().display().to_string().contains("aboutme.md")
+        })
         .map(|e| e.path().display().to_string())
         .collect();
     let mut html_files = Vec::with_capacity(markdown_files.len());
