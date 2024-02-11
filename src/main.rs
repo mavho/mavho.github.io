@@ -94,7 +94,17 @@ fn write_index(files: Vec<String>, output_dir: &str) -> Result<(), anyhow::Error
         .map(|file| {
             let file = file.trim_start_matches(output_dir);
             let title = file.trim_start_matches("/").trim_end_matches(".html");
-            format!(r#"<a href="/blog{}">{}</a>"#, file, title)
+            format!(
+                r#"
+                    <div class="entry-overview">
+                        <div class="detail">
+                        <h1><a href="/blog{}">{}</a></h1>
+                        </div>
+                    </div
+                "#,
+                file,
+                title
+            )
         })
         .collect::<Vec<String>>()
         .join("<br />\n");

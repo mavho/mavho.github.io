@@ -31,7 +31,8 @@ h1 em                       { color: black; font-size: 32px; display: block;
 div.container               { max-width: 880px; margin: 48px auto; padding: 0 40px; }
 div.header                  { float: left; }
 div.navigation              { float: right; }
-div.header, div.navigation  { height: 25px; margin-bottom: 42px; }
+div.header                  { height: 25px; margin-bottom: 42px; font-size: 40px;}
+div.navigation              { height: 25px; margin-bottom: 42px; font-size: 25px;}
 div.navigation ul           { margin: 0; padding: 0; list-style: none; }
 div.navigation ul li        { display: inline; margin: 0 2px; padding: 0; }
 div.body                    { clear: both; margin: 0 30px; line-height: 1.6; }
@@ -76,9 +77,9 @@ div.entry-overview                  { margin: 25px 122px 25px 102px; }
 div.entry-overview h1,
 div.entry-overview div.summary,
 div.entry-overview div.summary p    { display: inline; line-height: 25px; }
-div.entry-overview h1               { margin: 0; font-size: 17px;
+div.entry-overview h1               { margin: 0; font-size: 20px;
                                       font-family: 'Merriweather', serif; }
-div.entry-overview h1:after         { content: " —"; color: black; }
+/*div.entry-overview h1:after         { content: " —"; color: black; }*/
 div.entry-overview h1 a             { color: #8F4B5D; }
 div.entry-overview div.summary,
 div.entry-overview div.date,
