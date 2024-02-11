@@ -24,9 +24,6 @@ pub fn render_body(body: &str) -> String {
                 <li>
                   <a href="/blog">blog</a>
                 </li>
-                <li>
-                  <a href="/resume">resume</a>
-                </li>
               </ul>
             </div>
 
