@@ -54,9 +54,17 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
     let _ = fs::remove_dir_all(output_dir);
 
     let markdown_files: Vec<String> = walkdir::WalkDir::new(content_dir)
+        // sort by modified time
+        .sort_by(|a,b|
+            b.metadata().expect("Unable to parse metadata").modified().expect("Unable to parse metadta")
+            .cmp(
+                &a.metadata().expect("Unable to parse metadata").modified().expect("unable to parse metadata")
+            )
+        )
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {
+            // don't regenerate the about me 
             e.path().display().to_string().ends_with(".md") && !e.path().display().to_string().contains("aboutme.md")
         })
         .map(|e| e.path().display().to_string())
