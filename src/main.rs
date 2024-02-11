@@ -1,6 +1,7 @@
 use axum::{http::StatusCode, response::IntoResponse, routing, Router};
 use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration};
 use tower_http::services::{ServeDir,ServeFile};
+use chrono::{DateTime,Utc};
 
 mod templates;
 const CONTENT_DIR: &str = "content";
@@ -61,11 +62,16 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         .map(|e| e.path().display().to_string())
         .collect();
     let mut html_files = Vec::with_capacity(markdown_files.len());
+    let mut date_strings= Vec::with_capacity(markdown_files.len());
 
     for file in &markdown_files {
         let mut html = templates::HEADER.to_owned();
         let markdown = fs::read_to_string(&file)?;
         let parser = pulldown_cmark::Parser::new_ext(&markdown, pulldown_cmark::Options::all());
+
+        let metadata = fs::metadata(&file)?;
+        let modified_time = metadata.modified()?;
+        let datetime:DateTime<Utc>= modified_time.into();
 
         let mut body = String::new();
         pulldown_cmark::html::push_html(&mut body, parser);
@@ -81,27 +87,31 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         fs::write(&html_file, html)?;
 
         html_files.push(html_file);
+        date_strings.push(datetime);
     }
 
-    write_index(html_files, output_dir)?;
+    write_index(html_files,date_strings, output_dir)?;
     Ok(())
 }
 
-fn write_index(files: Vec<String>, output_dir: &str) -> Result<(), anyhow::Error> {
+fn write_index(files: Vec<String>, date_strings: Vec<DateTime<Utc>>, output_dir: &str) -> Result<(), anyhow::Error> {
     let mut html = templates::HEADER.to_owned();
     let body = files
-        .into_iter()
-        .map(|file| {
+        .iter()
+        .enumerate()
+        .map(|(index, file)| {
             let file = file.trim_start_matches(output_dir);
             let title = file.trim_start_matches("/").trim_end_matches(".html");
             format!(
                 r#"
                     <div class="entry-overview">
+                        <div class="date">{}</div>
                         <div class="detail">
                         <h1><a href="/blog{}">{}</a></h1>
                         </div>
                     </div
                 "#,
+                date_strings[index].format("%d/%m/%Y"),
                 file,
                 title
             )
