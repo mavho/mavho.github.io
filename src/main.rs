@@ -1,7 +1,9 @@
 use axum::{http::StatusCode, response::IntoResponse, routing, Router};
-use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration};
+use tokio::fs::metadata;
+use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration, collections::HashMap};
 use tower_http::services::{ServeDir,ServeFile};
 use chrono::{DateTime,Utc};
+use regex::Regex;
 
 mod templates;
 const CONTENT_DIR: &str = "content";
@@ -13,7 +15,7 @@ async fn main() -> Result<(), anyhow::Error> {
     rebuild_site(CONTENT_DIR, PUBLIC_DIR).expect("Rebuilding site");
 
     tokio::task::spawn_blocking(move || {
-        println!("listenning for changes: {}", CONTENT_DIR);
+        println!("listening for changes: {}", CONTENT_DIR);
         let mut hotwatch = hotwatch::Hotwatch::new().expect("hotwatch failed to initialize!");
         hotwatch
             .watch(CONTENT_DIR, |_| {
@@ -50,6 +52,41 @@ async fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+/**
+ * Extracts out the metadata header (YAML) format from the .md string
+ * returns a hashmap of it or none, and removes it from the original markdown string
+ */
+fn extract_metadata_and_remove_front_matter(markdown: &str) -> (Option<HashMap<String, String>>, String) {
+
+    // trim out the YAML metadata section
+    let re = Regex::new(r"(?s)^---\s*(.*?)\s*---").unwrap();
+
+    if let Some(captures) = re.captures(markdown) {
+        // metadata section
+        let metadata_section = captures.get(1).unwrap().as_str();
+        
+        // Extract the metadata into a map
+        let mut metadata = HashMap::new();
+        for line in metadata_section.lines() {
+            let parts: Vec<&str> = line.splitn(2, ':').collect();
+            if parts.len() == 2 {
+                let key = parts[0].trim().to_string();
+                let value = parts[1].trim().to_string();
+                metadata.insert(key, value);
+            }
+        }
+
+        // Remove the front matter from the markdown string
+        let clean_markdown = re.replace(markdown, "").to_string();
+
+        (Some(metadata), clean_markdown)
+    } else {
+        // No front matter, just return the original markdown
+        (None, markdown.to_string())
+    }
+}
+
+
 fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error> {
     let _ = fs::remove_dir_all(output_dir);
 
@@ -70,15 +107,25 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         .map(|e| e.path().display().to_string())
         .collect();
     let mut html_files = Vec::with_capacity(markdown_files.len());
-    let mut date_strings= Vec::with_capacity(markdown_files.len());
+    let mut date_strings = Vec::with_capacity(markdown_files.len());
+    let mut md_metadatas:Vec<Option<HashMap<String,String>>> = Vec::with_capacity(markdown_files.len());
 
     for file in &markdown_files {
         let mut html = templates::HEADER.to_owned();
         let markdown = fs::read_to_string(&file)?;
-        let parser = pulldown_cmark::Parser::new_ext(&markdown, pulldown_cmark::Options::all());
 
-        let metadata = fs::metadata(&file)?;
-        let modified_time = metadata.modified()?;
+        let (md_metadata, clean_markdown) = extract_metadata_and_remove_front_matter(&markdown); 
+
+        // If metadata exists, print it (for demonstration purposes)
+        if let Some(ref _metadata) = md_metadata {
+            println!("Extracted Metadata: {:?}", md_metadata);
+        }
+
+        let parser = pulldown_cmark::Parser::new_ext(&clean_markdown, pulldown_cmark::Options::all());
+
+        // grab file metadata
+        let file_metadata = fs::metadata(&file)?;
+        let modified_time = file_metadata.modified()?;
         let datetime:DateTime<Utc>= modified_time.into();
 
         let mut body = String::new();
@@ -87,6 +134,7 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         html.push_str(templates::render_body(&body).as_str());
         html.push_str(templates::FOOTER);
 
+        // writes each .md file into a new HTML file
         let html_file = file
             .replace(content_dir, output_dir)
             .replace(".md", ".html");
@@ -96,13 +144,19 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
 
         html_files.push(html_file);
         date_strings.push(datetime);
+        md_metadatas.push(md_metadata);
     }
 
-    write_index(html_files,date_strings, output_dir)?;
+    write_index(html_files,date_strings,md_metadatas, output_dir)?;
     Ok(())
 }
 
-fn write_index(files: Vec<String>, date_strings: Vec<DateTime<Utc>>, output_dir: &str) -> Result<(), anyhow::Error> {
+fn write_index(
+    files: Vec<String>,
+    date_strings: Vec<DateTime<Utc>>,
+    md_metadatas: Vec<Option<HashMap<String,String>>>,
+    output_dir: &str
+) -> Result<(), anyhow::Error> {
     let mut html = templates::HEADER.to_owned();
     let body = files
         .iter()
@@ -110,18 +164,26 @@ fn write_index(files: Vec<String>, date_strings: Vec<DateTime<Utc>>, output_dir:
         .map(|(index, file)| {
             let file = file.trim_start_matches(output_dir);
             let title = file.trim_start_matches("/").trim_end_matches(".html");
+            let default_blurb = &"No blurb available".to_string();
+            let blurb = md_metadatas[index]
+                .as_ref()
+                .and_then(|metadata| metadata.get("blurb"))
+                .unwrap_or(default_blurb);
+
             format!(
                 r#"
                     <div class="entry-overview">
                         <div class="date">{}</div>
                         <div class="detail">
                         <h1><a href="/blog{}">{}</a></h1>
+                        <p>{}</p>
                         </div>
                     </div
                 "#,
                 date_strings[index].format("%d/%m/%Y"),
                 file,
-                title
+                title,
+                blurb
             )
         })
         .collect::<Vec<String>>()

@@ -13,8 +13,8 @@ pub fn render_body(body: &str) -> String {
         <body>
           <div class="container">
             <div class="header">
-                Welcome! I'm 
                 <a href="/about">Maverick</a>
+                Writes
             </div>
             <div class="navigation">
               <ul>
