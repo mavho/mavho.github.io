@@ -72,6 +72,46 @@ Transactions in Kafka allow atomic multi-partition writes which will be reflecte
 
 Ok, so a producer can now perform atomic writes (either all messages are readable or none are). So how exactly does that help for *exactly once* semantics?
 
-In many Kafka workflows, you'll have a process consuming messages from a kafka topic, performing some operation on them - and then producing output messages back into another kafka topic. This is called a *read - process - write* pattern. 
+In many Kafka workflows, you'll have a process consuming messages from a kafka topic, performing some operation on them - and then producing output messages back into another kafka topic. This is called a *read - process - write* pattern. Processes that employ this pattern can send their consumed offsets back to the `__consumed_offsets` topic as part of the transaction process - which durably writes their position a topic partition if the transaction is committed. If - for some reason - that a process crashes before sending their consumed offsets to the transaction manager and committing, then the downstream consumers won't be able to see that process's produces (from a failed transaction) - which is what EOS provides to the consumed and produced messages. Messages that are *read - processed - produced* are wrapped up atomically and are only processed once. Essentially produces that are sent/created due to a batch processing of various messages are wrapped atomically with each other.
 
-In simpler words, let's say there's an input topic `tp0` and an output topic `tp1`.
+Let's run over an example: let's say there's an input topic `tpIn` and an output topic `tpOut`. We have a process that reads in messages from `tpIn`, performs some function on that message, and produces out to `tpOut`. Message A' is marked consumed when offset X(A') is sent to the offsets topic and then committed. Message B' is mapped to the successful output of the transaction - and will only be seen by downstream consumers if the transaction was able to be completed. In fact - the producer could've sent to multiple different topic-partitions within the same transaction - and they'll only be seen by downstream consumers if the transaction was committed.
+
+> It's important to note - downstream consumers will only read committed if `isolation.level=read_committed` is set. If it's set to `read_uncommitted` consumers will see aborted messages and messages that are still ongoing in a transaction.
+> It is also important to note that this *read - process -write* pattern only applies to within the Kafka Ecosystem - meaning the write portion of the pattern only applies to Kafka produces and doesn't apply to external systems processing.  
+
+## Transactional.id
+
+Kafka introduces a `transactional.id` to help combat a zombie. Let's say that a consumer is lagging behind or we think that it has failed, and we bring up another consumer to perform the task. However now we have two processes that could be potentially producing multiple duplicate messages. Transactional id's help prevent this because the producer will have to register it's ID to the transactional coordinator on startup. When the same `transactional.id` is seen again, the coordinator will increase it's `epoch` - which the coordinator uses to mark which is the most recent producer. Any transaction operation with an older epoch is fenced and the application code could die gracefully.
+
+## Transactions Workflow
+To help facilitate transactions, Kafka introduces a Transaction Coordinator (TXN Coordinator), a broker chosen to help facilitate requests from the Producers and other brokers.
+1. Producer & Transaction Coordinator Interaction
+    - upon startup the producer chooses a `transactional.id` and initiates a transaction with the TXN Coordiantor. 
+
+2. Txn Coordinator
+    - The TXN Coordinator keeps track of a transaction log - a durable kafka topic that keeps track of transaction state amongst many different transactions. The producer will send updates to the coordinator to write to this log.
+3. Producer
+    - Producer begins the transaction, which will send a request to the TXN Coordinator to start a transaction.
+    - Producer can send many different messages to the output topic-partitions
+    - After the producer processes the messages and wants to commit, the producer will send it's `consumed_offsets` as part of the transaction to the transaction coordinator.
+    - If all steps were successful - the Producer can commit - marking the transaction as complete - or abort in case of an error.
+4. Txn Coordinator to Topic/Partition Interaction
+    - When the producer commits/aborts - the coordinator starts a two phase commit process.
+        - 1st phase: The coordinator will update the transaction log to (prepare commit/abort) which will execute no matter what. This will durably mark that a transaction needs to bet committed or aborted. Therefore if the coordinator fails - another one will be able to take it's place.
+        - 2nd phase: The coordinator writes commit markers to topic/partitions that are apart of the transactions.
+    - These commit markers are then used by consumers in `read_committed` mode to either use or filter out aborted messages. Once these markers have finished - the coordinator marks the transaction as done.
+
+# Implement EOS Semantics using Kafka Transactions with Rust
+Now that we have a basic understanding about Kafka EOS - I'll show you how to use them using Rust as an example. Hopefully this will better help you understand what's going during the *read-process-write* interactions within transactions.
+
+## Configuration
+To configure a transactional producer, you'll need to set
+    - `enable.idempotence=true`
+    - Set retries to a high number (leave default)`retries=2147483647`
+    - `acks=all`
+    - `transactional.id` - set a transactional ID for this process instance.
+To configure a transaction aware consumer, you should set
+    -`isolation.level=read_committed`
+
+The transactional producer and consumer should sit in the same process space in order for the transactional producer to be able to send the consumed offsets as part of the transaction
+
