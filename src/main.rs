@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, routing, Router};
 use tokio::fs::metadata;
-use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration, collections::HashMap};
+use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration, collections::HashMap,env};
 use tower_http::services::{ServeDir,ServeFile};
 use chrono::{DateTime,Utc};
 use regex::Regex;
@@ -12,6 +12,8 @@ const STATIC_DIR : &str = "static";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    let args: Vec<String> = env::args().collect();
+
     rebuild_site(CONTENT_DIR, PUBLIC_DIR).expect("Rebuilding site");
 
     tokio::task::spawn_blocking(move || {
