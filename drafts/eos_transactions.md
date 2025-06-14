@@ -43,14 +43,18 @@ Let's go over some common failure scenarios that can occur during message delive
 
 ## A) Message Ack Fails, But is written to the log
 
+# ![](/static/pictures/eos_images/diag-f-0.png){.align-center} 
+
 A producer could send over a message to the leader of the topic partition, and the leader is able to successfuly write and replicate that record to the log. The leader then sends an acknowledgement back to the producer, but that acknowledgement is lost for what ever reason. If your producer is configured with retries then the producer will retry the produce message, and the message will be written twice into the topic partition.
 
 ## B) Producer Fails While Processing Messages
 
+# ![](/static/pictures/eos_images/diag-f-1.png){.align-center} 
 A producer could be in the process of producing many messages to the topic partition, however it crashes half way through. However based on the producer's application code what should it do? Should it restart from where it left off - which could reintroduce duplicates? If you're going for *at least once* delivery semantics, that would be the way to go, or if you're going for *at most once* delivery semantics - you would pick up from where it crashes.
 
 ## C) Consumer Fails While Processing Messages
 
+# ![](/static/pictures/eos_images/diag-f-2.png){.align-center} 
 A consumer could fail while in the process of consuming messages from a topic partition. In the event that the consumer crashes before committing their offset - when the consumer is started up again then it will consume the same records again - which introduces duplicates on the consumer side.
 
 
@@ -364,7 +368,7 @@ Ok that's cool - what if the processes are within the same consumer group?
 Well that's pretty similar - remember only one producer with a mapped transactional id can produce to the transaction - even if it's mapped to consume from different/same topic-partitions.
 When two processes are consuming the same topic-partition - only the one with the newest epoch will be able to process the messages. Even if the process with the newest epoch doesn't receive the messages initially (due to consumer group rebalancing) - it will be able to process the messages once it's able to be assigned.
 
-<!-- <screenshot dup-ts-5> -->
+# ![hello](/static/pictures/eos_images/dup-ts-id-5.png){.align-center} 
 Let's look at this above screen shot that shows how a zombie process works
     - 1) We've launched the rust-eos process here. We can see that it's assigned to `input-topic-0` at partition 0. When 2) joined - it breifely rebalanced the consumers - but then was able to still keep the same partition.
     - 2) is created at a later point in time - thus has a higher epoch
