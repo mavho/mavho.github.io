@@ -1,31 +1,32 @@
+Kafka provides developers an ecosystem in where millions of messages can be processed in a distributed fashion - allowing teams to build massive data ingestions platforms. One of the key aspects, not only to Kafka, but to any distributed messaging platform - is message delivery semantics. Defining these semantics is important, because it requires the developer to think about what happens to a message under failure. Failure happens all the time, so it's important to ask this question.
 
-In distributed message process, there are different types of processing/delivery semantics used to handle the processing of diferent messages under different failure modes and use cases. Kafka provides three delivery semantics out of the box, which can be configured directly onto the configuration - all three with different use cases. There are
+Kafka provides three delivery semantics out of the box, which can be configured directly onto the producer's configuration - all three with different use cases. There are
     - *at most once* semantics - which offers the highest throughput of sent messages - but the least durability of written messages.
     - *at least once* semantics - offers strong durability of written messages - messages are always written. However under failures messages could be duplicated.
     - *exactly once* semantics - offers the strongest durability of written messages - messages are written exactly once - even under failure.
 
 *at most once* and *at least once* semantics are the easiest to configure - both just require fine tuning various settings on the Kafka producer/consumer. However - for *exactly  once* semantics - it requires fine tuning settings on both the kafka producer **and** consumer, as well as writing application side code for transactions that enable *exactly once* **processing and delivery** of messages.
 
-> side note - these semantics apply to both the **delivery** of a message by a producer - and the **receipt/processing** of a message from the consumer. These semantics can be mixed and matched with each other if different guarantees are needed for the **flow** of delivery -> processing work cycle. *exactly once* semantics is able to offer the guarantees on **both** the producer and consumer.
+> side note - these semantics apply to both the **delivery** of a message by a producer - and the **receipt/processing** of a message from the consumer. These semantics can be mixed and matched with each other if different guarantees are needed for the **flow** of delivery -> processing work cycle. *exactly once* semantics is able to offer the strongest guarantees on **both** the producer and consumer.
 
-#  At Most Once Semantics and At Least Once Semantics
+# At Most Once Semantics and At Least Once Semantics
 Before getting to *exactly once* semantics - we'll go over the two basic settings on both the producer and consumer side.
 
 - *at most once semantics*:
-    - **Delivery:** Messages are delivered to the leader at most once. Configuring *at most once* means that when a producer sends a message - it will only send the message at most one time. This means that the producer doesn't have to wait for an acknowledgement from the leader - and can process/send messages asynchronously without handling any retries or acknowledgements - providing the fastest throughput and latency of all the semantics. However in cases of a failure - messages can be lost.
+    - **Delivery:** Messages are delivered to the topic at most once. Configuring *at most once* means that when a producer sends a message - it will only send the message at most one time. This means that the producer doesn't have to wait for an acknowledgement from the leader - and can process/send messages asynchronously without handling any retries or acknowledgements - providing the fastest throughput and latency of all the semantics. However in cases of a failure - messages can be lost.
         - to configure *at most once semnatics*
             - set `retries=0`
             - set `acks=0`, since you're not waiting for any acknowledgement from the leader.
             - set `enable.idempotence=false` - as setting it to true will conflict with the other settings. (Kafka will automatically set this for you)
-        - In summary - this can be seen as *fire and forget*
-    - **Processing:** Messages are read by the leader at most once - meaning once the consumer has polled the messages - it commits it's offset (place in the partition) - and then processes the message. If the consumer crashes after commiting it's offset - but before processing the messages - the consumer that takes over will continue where the other consumer left off.
+        - In short - this can be seen as *fire and forget*
+    - **Processing:** Messages are read by the topic at most once - meaning once the consumer has polled the messages - it then commits the consumed offset offset (place in the partition) - and then processes the message. In event of failure, it's not guaranteed that each message will be proecssed. For example, if the consumer crashes after commiting it's offset - but before processing the messages - the consumer that takes over will continue where the other consumer left off - skipping the message.
         - to configure *at most once semantics* - you usually want to commit offsets before processing messages - and that can be done within the application code.
             - set `enable.auto.commit=false`, and commit right after you poll/batch the messages.
-        - however it's best to let the consumer handle the auto commit - unless you need **exact** *at most once* semantics.
-            - set `enable.auto.commit=true` - however this could process messages multiple times. This could happen when the consumer has consumed a message - but processed them before commiting. Therefore when a consumer dies while processing the messages - but before committing them - the consumer that takes over will reprocess those messages.
+        - it's best to let the consumer handle the auto commit - unless you need **exact** *at most once* semantics.
+            - set `enable.auto.commit=true` - however this could process messages multiple times (*at least once*). This could happen when the consumer has consumed a message - but processed them before commiting. Therefore when a consumer dies while processing the messages - but before committing them - the consumer that takes over will reprocess those messages.
 
 - *at least once semantics*:
-    - **Delivery:** Messages are delivered to the broker at least once. Configuring *at least once once* means when a producer sends a message, it will wait for the broker to acknowledge that message. Once the broker acknowledges that message - it means that the message has been written to that broker (topic) - and depending on the `ack` setting, been persisted to that topic.
+    - **Delivery:** Messages are delivered to the broker at least once. When configuring *at least once once*, when a producer sends a message, it will wait for the broker to acknowledge that message. Once the broker acknowledges that message - it means that the message has been written to that broker (topic) - and depending on the `ack` setting, been persisted to that topic.
         - to configure *at least once semantics*
             - set `retries` to the default settings (which is essentially unlimited retries)
             - set `delivery.timeout.ms` to an upper bound in `ms` that directly correlates to `retries`
@@ -52,9 +53,12 @@ A producer could send over a message to the leader of the topic partition, and t
 # ![](/static/pictures/eos_images/diag-f-1.png){.align-center} 
 A producer could be in the process of producing many messages to the topic partition, however it crashes half way through. However based on the producer's application code what should it do? Should it restart from where it left off - which could reintroduce duplicates? If you're going for *at least once* delivery semantics, that would be the way to go, or if you're going for *at most once* delivery semantics - you would pick up from where it crashes.
 
+# ![](/static/pictures/eos_images/diag-f-2.png){.align-center} 
+> Restarting the producer instance caused the duplicate batch to send again.
+
 ## C) Consumer Fails While Processing Messages
 
-# ![](/static/pictures/eos_images/diag-f-2.png){.align-center} 
+# ![](/static/pictures/eos_images/diag-f-3.png){.align-center} 
 A consumer could fail while in the process of consuming messages from a topic partition. In the event that the consumer crashes before committing their offset - when the consumer is started up again then it will consume the same records again - which introduces duplicates on the consumer side.
 
 
@@ -78,6 +82,7 @@ Ok, so a producer can now perform atomic writes (either all messages are readabl
 
 In many Kafka workflows, you'll have a process consuming messages from a kafka topic, performing some operation on them - and then producing output messages back into another kafka topic. This is called a *read - process - write* pattern. Processes that employ this pattern can send their consumed offsets back to the `__consumed_offsets` topic as part of the transaction process - which durably writes their position a topic partition if the transaction is committed. If - for some reason - that a process crashes before sending their consumed offsets to the transaction manager and committing, then the downstream consumers won't be able to see that process's produces (from a failed transaction) - which is what EOS provides to the consumed and produced messages. Messages that are *read - processed - produced* are wrapped up atomically and are only processed once. Essentially produces that are sent/created due to a batch processing of various messages are wrapped atomically with each other.
 
+# ![](/static/pictures/eos_images/diag-pwc-0.png){.align-center} 
 Let's run over an example: let's say there's an input topic `tpIn` and an output topic `tpOut`. We have a process that reads in messages from `tpIn`, performs some function on that message, and produces out to `tpOut`. Message A' is marked consumed when offset X(A') is sent to the offsets topic and then committed. Message B' is mapped to the successful output of the transaction - and will only be seen by downstream consumers if the transaction was able to be completed. In fact - the producer could've sent to multiple different topic-partitions within the same transaction - and they'll only be seen by downstream consumers if the transaction was committed.
 
 > It's important to note - downstream consumers will only read committed if `isolation.level=read_committed` is set. If it's set to `read_uncommitted` consumers will see aborted messages and messages that are still ongoing in a transaction.
