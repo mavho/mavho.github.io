@@ -164,8 +164,13 @@ fn write_index(
         .iter()
         .enumerate()
         .map(|(index, file)| {
-            let file = file.trim_start_matches(output_dir);
-            let title = file.trim_start_matches("/").trim_end_matches(".html");
+            let file = file.trim_start_matches(output_dir).to_string();
+            let default_title = file.trim_start_matches("/").trim_end_matches(".html").to_owned();
+            let title = md_metadatas[index]
+                .as_ref()
+                .and_then(|metadata| metadata.get("title"))
+                .unwrap_or(&default_title);
+
             let default_blurb = &"No blurb available".to_string();
             let blurb = md_metadatas[index]
                 .as_ref()
@@ -182,7 +187,7 @@ fn write_index(
                         </div>
                     </div
                 "#,
-                date_strings[index].format("%d/%m/%Y"),
+                date_strings[index].format("%m/%d/%Y"),
                 file,
                 title,
                 blurb
