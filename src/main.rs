@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, routing, Router};
 use tokio::fs::metadata;
-use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration, collections::HashMap};
+use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration, collections::HashMap,env};
 use tower_http::services::{ServeDir,ServeFile};
 use chrono::{DateTime,Utc};
 use regex::Regex;
@@ -12,6 +12,8 @@ const STATIC_DIR : &str = "static";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    let args: Vec<String> = env::args().collect();
+
     rebuild_site(CONTENT_DIR, PUBLIC_DIR).expect("Rebuilding site");
 
     tokio::task::spawn_blocking(move || {
@@ -162,8 +164,13 @@ fn write_index(
         .iter()
         .enumerate()
         .map(|(index, file)| {
-            let file = file.trim_start_matches(output_dir);
-            let title = file.trim_start_matches("/").trim_end_matches(".html");
+            let file = file.trim_start_matches(output_dir).to_string();
+            let default_title = file.trim_start_matches("/").trim_end_matches(".html").to_owned();
+            let title = md_metadatas[index]
+                .as_ref()
+                .and_then(|metadata| metadata.get("title"))
+                .unwrap_or(&default_title);
+
             let default_blurb = &"No blurb available".to_string();
             let blurb = md_metadatas[index]
                 .as_ref()
@@ -180,7 +187,7 @@ fn write_index(
                         </div>
                     </div
                 "#,
-                date_strings[index].format("%d/%m/%Y"),
+                date_strings[index].format("%m/%d/%Y"),
                 file,
                 title,
                 blurb
