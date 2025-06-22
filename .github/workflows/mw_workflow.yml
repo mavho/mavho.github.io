@@ -39,7 +39,7 @@ jobs:
         run: |
           ./target/release/mav_static_site --generate
           mkdir public/blog
-          mv public/*.html blog/
+          mv public/*.html public/blog/
           mv pulbic/blog/index.html public
           mv -r static public
 
