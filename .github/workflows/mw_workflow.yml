@@ -40,7 +40,7 @@ jobs:
           ./target/release/mav_static_site --generate
           mkdir public/blog
           mv public/*.html public/blog/
-          mv pulbic/blog/index.html public
+          mv public/blog/index.html public
           mv -r static public
 
       - name: Upload static files as artifact
