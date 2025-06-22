@@ -38,11 +38,14 @@ jobs:
         id: static_generation
         run: |
           ./target/release/mav_static_site --generate
-          cp public/* static/
+          mkdir public/blog
+          mv public/*.html blog/
+          mv pulbic/blog/index.html public
+          mv -r static public
 
       - name: Upload static files as artifact
         id: static_deployment
         uses: actions/upload-pages-artifact@v3
         with:
           name: static_artifact
-          path: static/
+          path: public/
