@@ -41,7 +41,7 @@ jobs:
           mkdir public/blog
           mv public/*.html public/blog/
           mv public/blog/index.html public
-          mv -r static public
+          mv static/ public/
 
       - name: Upload static files as artifact
         id: static_deployment
