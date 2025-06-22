@@ -22,7 +22,7 @@ pub fn render_body(body: &str) -> String {
                   <a href="/static/aboutme.html">about</a>
                 </li>
                 <li>
-                  <a href="/blog">blog</a>
+                  <a href="/">blog</a>
                 </li>
               </ul>
             </div>
