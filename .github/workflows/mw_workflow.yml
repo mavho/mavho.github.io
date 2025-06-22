@@ -39,7 +39,12 @@ jobs:
         run: ./target/release/mav_static_site --generate
 
       - name: Upload static files as artifact
-        id: deployment
+        id: static_deployment
         uses: actions/upload-pages-artifact@v3
         with:
-          path: static/ public/
+          path: static/
+      - name: Upload public HTML files as artifact
+        id: html_deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public/
