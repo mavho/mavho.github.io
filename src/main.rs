@@ -112,9 +112,9 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
     let markdown_files: Vec<String> = walkdir::WalkDir::new(content_dir)
         // sort by modified time
         .sort_by(|a,b|
-            b.metadata().expect("Unable to parse metadata").modified().expect("Unable to parse metadta")
+            b.metadata().expect("Unable to parse metadata").created().expect("Unable to parse metadta")
             .cmp(
-                &a.metadata().expect("Unable to parse metadata").modified().expect("unable to parse metadata")
+                &a.metadata().expect("Unable to parse metadata").created().expect("unable to parse metadata")
             )
         )
         .into_iter()
@@ -193,6 +193,12 @@ fn write_index(
                 .as_ref()
                 .and_then(|metadata| metadata.get("blurb"))
                 .unwrap_or(default_blurb);
+        
+            let default_date = &date_strings[index].format("%m/%d/%Y").to_string();
+            let date_str = md_metadatas[index]
+                .as_ref()
+                .and_then(|metadata| metadata.get("date"))
+                .unwrap_or(default_date);
 
             format!(
                 r#"
@@ -204,7 +210,7 @@ fn write_index(
                         </div>
                     </div
                 "#,
-                date_strings[index].format("%m/%d/%Y"),
+                date_str,
                 file,
                 title,
                 blurb

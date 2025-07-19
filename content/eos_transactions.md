@@ -1,4 +1,5 @@
 ---
+date: 06/22/2025
 title: Kafka EOS and Transactions with Rust
 blurb: Dive into Kafka's delivery semantics, and learn how exactly once semantics are implemented with Kafka's transactional API, with examples written in Rust.
 ---
