@@ -1,3 +1,7 @@
+---
+title: SNMP Trap
+blurb: Overview on how SNMP works, and the configurations needed to set up SNMP trap's.
+---
 # What is SNMP
 Stands for **S**imple **N**etwork **M**anagement **P**rotocol. It's used to monitor and modify device settings through the network. It was originally designed for routers and switches, but has since been expanded to servers, printers, etc. An SNMP network comprises of three components
 - SNMP Agent: Devices and it's software that provides status or can send (traps) to the SNMP manager.
