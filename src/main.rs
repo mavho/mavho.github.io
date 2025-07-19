@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, routing, Router};
-use tokio::fs::metadata;
-use std::{fs, io, net::SocketAddr, path::Path, thread, time::Duration, collections::HashMap,env};
+use clap::{Arg, ArgAction, ArgMatches, Command};
+use std::{collections::HashMap, env, fs, io, net::SocketAddr, path::Path, process::exit, thread, time::Duration};
 use tower_http::services::{ServeDir,ServeFile};
 use chrono::{DateTime,Utc};
 use regex::Regex;
@@ -12,10 +12,27 @@ const STATIC_DIR : &str = "static";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let args: Vec<String> = env::args().collect();
+    let command = Command::new("MaverickWrites")
+        .arg(
+            Arg::new("generate")
+                .short('g')
+                .long("generate")
+                .action(ArgAction::SetTrue)
+        );
+    
+    let matches:ArgMatches = command.get_matches();
+
+    let generate:bool = matches.get_flag("generate");
+
+
+    if generate{
+        rebuild_site(CONTENT_DIR, PUBLIC_DIR).expect("Rebuilding site");
+        println!("Successfully built site.");
+        exit(0);
+    }
+
 
     rebuild_site(CONTENT_DIR, PUBLIC_DIR).expect("Rebuilding site");
-
     tokio::task::spawn_blocking(move || {
         println!("listening for changes: {}", CONTENT_DIR);
         let mut hotwatch = hotwatch::Hotwatch::new().expect("hotwatch failed to initialize!");
@@ -119,9 +136,9 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         let (md_metadata, clean_markdown) = extract_metadata_and_remove_front_matter(&markdown); 
 
         // If metadata exists, print it (for demonstration purposes)
-        if let Some(ref _metadata) = md_metadata {
-            println!("Extracted Metadata: {:?}", md_metadata);
-        }
+        // if let Some(ref _metadata) = md_metadata {
+        //     println!("Extracted Metadata: {:?}", md_metadata);
+        // }
 
         let parser = pulldown_cmark::Parser::new_ext(&clean_markdown, pulldown_cmark::Options::all());
 
