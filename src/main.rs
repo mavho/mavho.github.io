@@ -1,11 +1,16 @@
+mod blog_entry;
+mod templates;
+
 use axum::{http::StatusCode, response::IntoResponse, routing, Router};
 use clap::{Arg, ArgAction, ArgMatches, Command};
-use std::{collections::HashMap, env, fs, io, net::SocketAddr, path::Path, process::exit, thread, time::Duration};
+use std::{collections::{HashMap,BinaryHeap}, fs, io, net::SocketAddr, path::Path, process::exit, thread, time::Duration};
 use tower_http::services::{ServeDir,ServeFile};
-use chrono::{DateTime,Utc};
+use chrono::NaiveDate;
 use regex::Regex;
+use blog_entry::blog;
 
-mod templates;
+use crate::blog_entry::blog::Blog;
+
 const CONTENT_DIR: &str = "content";
 const PUBLIC_DIR: &str = "public";
 const STATIC_DIR : &str = "static";
@@ -30,7 +35,6 @@ async fn main() -> Result<(), anyhow::Error> {
         println!("Successfully built site.");
         exit(0);
     }
-
 
     rebuild_site(CONTENT_DIR, PUBLIC_DIR).expect("Rebuilding site");
     tokio::task::spawn_blocking(move || {
@@ -110,13 +114,6 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
     let _ = fs::remove_dir_all(output_dir);
 
     let markdown_files: Vec<String> = walkdir::WalkDir::new(content_dir)
-        // sort by modified time
-        .sort_by(|a,b|
-            b.metadata().expect("Unable to parse metadata").created().expect("Unable to parse metadta")
-            .cmp(
-                &a.metadata().expect("Unable to parse metadata").created().expect("unable to parse metadata")
-            )
-        )
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {
@@ -125,10 +122,8 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         })
         .map(|e| e.path().display().to_string())
         .collect();
-    let mut html_files = Vec::with_capacity(markdown_files.len());
-    let mut date_strings = Vec::with_capacity(markdown_files.len());
-    let mut md_metadatas:Vec<Option<HashMap<String,String>>> = Vec::with_capacity(markdown_files.len());
 
+    let mut blog_entries:BinaryHeap<blog::Blog> = BinaryHeap::with_capacity(markdown_files.len());
     for file in &markdown_files {
         let mut html = templates::HEADER.to_owned();
         let markdown = fs::read_to_string(&file)?;
@@ -141,11 +136,6 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         // }
 
         let parser = pulldown_cmark::Parser::new_ext(&clean_markdown, pulldown_cmark::Options::all());
-
-        // grab file metadata
-        let file_metadata = fs::metadata(&file)?;
-        let modified_time = file_metadata.modified()?;
-        let datetime:DateTime<Utc>= modified_time.into();
 
         let mut body = String::new();
         pulldown_cmark::html::push_html(&mut body, parser);
@@ -161,41 +151,54 @@ fn rebuild_site(content_dir: &str, output_dir: &str) -> Result<(), anyhow::Error
         let _ = fs::create_dir_all(folder);
         fs::write(&html_file, html)?;
 
-        html_files.push(html_file);
-        date_strings.push(datetime);
-        md_metadatas.push(md_metadata);
+        let datetime = md_metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("date"));
+
+        if let Some(dt) = datetime{
+            let datetime = NaiveDate::parse_from_str(dt, "%m/%d/%Y")?;
+
+            let b = Blog{html_file,date_string:datetime,md_metadata:md_metadata};
+            blog_entries.push(b);
+
+        }else{
+            println!("{html_file} does not have a blurb, skipping...");
+            continue;
+        }
     }
 
-    write_index(html_files,date_strings,md_metadatas, output_dir)?;
+    // write_index(html_files,date_strings,md_metadatas, output_dir)?;
+    write_index(blog_entries.into_sorted_vec(),output_dir)?;
     Ok(())
 }
 
 fn write_index(
-    files: Vec<String>,
-    date_strings: Vec<DateTime<Utc>>,
-    md_metadatas: Vec<Option<HashMap<String,String>>>,
+    // files: Vec<String>,
+    // date_strings: Vec<DateTime<Utc>>,
+    // md_metadatas: Vec<Option<HashMap<String,String>>>,
+    blog_entries: Vec<blog::Blog>,
     output_dir: &str
 ) -> Result<(), anyhow::Error> {
     let mut html = templates::HEADER.to_owned();
-    let body = files
+    let body = blog_entries
         .iter()
-        .enumerate()
-        .map(|(index, file)| {
-            let file = file.trim_start_matches(output_dir).to_string();
+        // .enumerate()
+        .map(| b| {
+            let file = b.html_file.trim_start_matches(output_dir).to_string();
             let default_title = file.trim_start_matches("/").trim_end_matches(".html").to_owned();
-            let title = md_metadatas[index]
+            let title = b.md_metadata
                 .as_ref()
                 .and_then(|metadata| metadata.get("title"))
                 .unwrap_or(&default_title);
 
             let default_blurb = &"No blurb available".to_string();
-            let blurb = md_metadatas[index]
+            let blurb = b.md_metadata
                 .as_ref()
                 .and_then(|metadata| metadata.get("blurb"))
                 .unwrap_or(default_blurb);
         
-            let default_date = &date_strings[index].format("%m/%d/%Y").to_string();
-            let date_str = md_metadatas[index]
+            let default_date = &b.date_string.format("%m/%d/%Y").to_string();
+            let date_str = b.md_metadata
                 .as_ref()
                 .and_then(|metadata| metadata.get("date"))
                 .unwrap_or(default_date);

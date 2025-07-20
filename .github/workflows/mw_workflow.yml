@@ -36,17 +36,33 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: Creating static files
         id: static_generation
-        run: ./target/release/mav_static_site --generate
+        run: |
+          ./target/release/mav_static_site --generate
+          mkdir public/blog
+          mv public/*.html public/blog/
+          mv public/blog/index.html public
+          mv static/ public/
 
       - name: Upload static files as artifact
         id: static_deployment
         uses: actions/upload-pages-artifact@v3
         with:
           name: static_artifact
-          path: static/
-      - name: Upload public HTML files as artifact
-        id: html_deployment
-        uses: actions/upload-pages-artifact@v3
-        with:
-          name: html_artifact
           path: public/
+  
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action
+        with:
+          artifact_name: static_artifact
+  
