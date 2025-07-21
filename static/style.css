@@ -5,12 +5,13 @@
 */
 
 /* general style */
-body    { font: 17px/25px 'Merriweather', serif;
+body    { font: 17px/25px 'Merriweather', serif; display: inline;
           margin: 0; padding: 0; font-weight: 400; color: black; }
 a       { color: #8F4B5D; font-weight: 400; }
 a:hover { color: #a57575; }
 
 /* headlines */
+
 h1, h2, h3, h4, h5, h6      { font-family: 'Questrial', sans-serif;
                               font-weight: 400; color: #3D3F4F }
 h1 a, h2 a, h3 a, h4 a,
@@ -127,4 +128,70 @@ span.strike     { text-decoration: line-through; }
     h1 { font-size: 42px; line-height: 44px; }
     h2 { font-size: 36px; line-height: 38px; }
     h3 { font-size: 28px; line-height: 30px; }
+}
+
+.mask-container {
+  position: absolute;
+  /* display: block; */
+  bottom: 0;
+  opacity: .2;
+  z-index: -1;
+  width: 30vw;
+}
+/* mobile vine width, just expand*/
+@media only screen and (max-width: 900px) {
+  .mask-container {
+    width: 100vw;
+  }
+}
+
+.vine-wrapper {
+  width: inherit;
+  height: 100vh;
+}
+
+.mask-container.blog-opacity{
+  opacity: .07;
+}
+
+.color-image {
+  position: absolute;
+  inset: 0;
+  background-image: url("/static/pictures/vine_base/vines_drawing.jpg");
+  background-size: cover;
+
+  -webkit-mask-image: url("/static/pictures/vine_base/vine_base_layer_mask_only.png");
+  -webkit-mask-size: cover;
+  -webkit-mask-position: 0% 0%;
+  mask-image: url("/static/pictures//vine_base/vine_base_layer_mask_only.png");
+  mask-size: cover;
+  mask-position: 0% 0%;
+
+  transition: 
+    -webkit-mask-position ;
+}
+
+.mask-animation {
+  /**
+  you need to alter steps(x) with how many frames you have
+  If you set it to more than your frames, it'll end up animating
+  the mask in a disjointed way
+  */
+  animation: 
+    addColor 700ms steps(4) forwards;
+}
+
+@keyframes addColor {
+  0% {
+    -webkit-mask-position: 0% 0%;
+    mask-position: 0% 0%;
+  }
+  100% {
+    /*
+    -webkit-mask-position: 100% 0% ;
+    mask-position: 100% 0% ;
+    */
+    -webkit-mask-position: 0% 100% ;
+    mask-position: 0% 100% ;
+  }
 }

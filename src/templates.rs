@@ -33,6 +33,10 @@ pub fn render_body(body: &str) -> String {
             {}
             </div>
 
+            <div class="mask-container blog-opacity">
+                <div class="color-image mask-animation"></div>
+                <img class="vine-wrapper">
+            </div>
         </body>"#,
         body
     )
