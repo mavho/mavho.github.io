@@ -132,7 +132,6 @@ span.strike     { text-decoration: line-through; }
 
 .mask-container {
   position: absolute;
-  /* display: block; */
   bottom: 0;
   opacity: .2;
   z-index: -1;
@@ -146,7 +145,6 @@ span.strike     { text-decoration: line-through; }
 }
 
 .vine-wrapper {
-  width: inherit;
   height: 100vh;
 }
 
