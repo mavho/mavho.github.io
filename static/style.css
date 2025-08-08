@@ -56,8 +56,18 @@ blockquote                      { font-style: italic; }
 pre, code, tt   { font-family: 'Ubuntu Mono', 'Consolas', 'Deja Vu Sans Mono',
                   'Bitstream Vera Sans Mono', 'Monaco', 'Courier New', monospace;
                   font-size: 0.9em; }
-pre             { line-height: 1.45; background: none; padding: 0; width: 100%;
-                  overflow-x: auto; }
+pre             { line-height: 1.45; padding: 0;;
+                  page-break-inside: avoid;
+                  background: #eee;
+                  border: 1px solid #ddd;
+                  border-radius: 2px;
+                  line-height: 1.6;
+                  margin-bottom: 1.6em;
+                  overflow: auto;
+                  padding: 1em 1.5em;
+                  display: block;
+                  border-left: 3px solid #8F4B5D;
+                  overflow-x: auto;}
 code, tt        { background: #eee; }
 
 /* tables */
